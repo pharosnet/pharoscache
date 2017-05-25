@@ -13,24 +13,24 @@ type Option struct {
 	OnEvicted Evicted
 }
 
-type cache struct {
+type Cache struct {
 	option *Option
 	lock *sync.Mutex
-	buckets map[string]*bucket
+	buckets map[string]*Bucket
 }
 
-func NewCache(option *Option) *cache {
-	c := new(cache)
+func NewCache(option *Option) *Cache {
+	c := new(Cache)
 	if option.MaxEntries == 0 {
 		option.MaxEntries = 1024
 	}
 	c.option = option
 	c.lock = new(sync.Mutex)
-	c.buckets = make(map[string]*bucket)
+	c.buckets = make(map[string]*Bucket)
 	return c
 }
 
-func (c *cache) Bucket(name string) *bucket {
+func (c *Cache) Bucket(name string) *Bucket {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if b, hit := c.buckets[name]; hit {
@@ -39,28 +39,4 @@ func (c *cache) Bucket(name string) *bucket {
 	b := newBucket(c.option.MaxEntries, c.option.OnEvicted)
 	c.buckets[name] = b
 	return b
-}
-
-func (c *cache) RemoveBucket(name string) bool {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if b, hit := c.buckets[name]; hit {
-		b.stop()
-		delete(c.buckets, name)
-		return hit
-	}
-	return false
-}
-
-func (c *cache) Close() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	keys := make([]string, 0, len(c.buckets))
-	for k, b := range c.buckets {
-		b.stop()
-		keys = append(keys, k)
-	}
-	for _, k := range keys {
-		delete(c.buckets, k)
-	}
 }
